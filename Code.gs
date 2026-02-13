@@ -194,6 +194,48 @@ function setupDemoData() {
   ss.getSheetByName(SHEET_DEAL_LOGS).getRange(2, 1, dummyLogs.length, dummyLogs[0].length).setValues(dummyLogs);
 }
 
+function setupBillingSampleData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dealHeaders = ['id', 'clientName', 'dealName', 'amount', 'occurrenceDate', 'quoteDate', 'status', 'engagementStatus', 'genre', 'service', 'channel', 'billingType', 'billingDate', 'revenueMonth', 'billingStartMonth', 'billingEndMonth', 'billingAmount', 'billingTotal', 'contactId', 'contactIds', 'updatedAt'];
+
+  ensureSheet(ss, SHEET_DEALS, dealHeaders);
+  ensureSheet(ss, SHEET_BILLING_MASTER, BILLING_MASTER_HEADERS);
+  ensureSheet(ss, SHEET_MONTHLY_TASKS, MONTHLY_TASK_HEADERS);
+  ensureDealsSchema(ss.getSheetByName(SHEET_DEALS));
+  ensureBillingMasterSchema(ss.getSheetByName(SHEET_BILLING_MASTER));
+  ensureMonthlyTasksSchema(ss.getSheetByName(SHEET_MONTHLY_TASKS));
+
+  const sampleDeals = [
+    { id: 'billing-demo-001', clientName: '株式会社テスト商事', dealName: '物流分析ダッシュボード導入', amount: 1800000, occurrenceDate: '2026-01-10', quoteDate: '2026-01-15', status: 'contract', engagementStatus: 'contacting', genre: '運輸', service: 'well-harmoレポート', channel: '既存顧客', billingType: 'single', billingDate: '2026-02-20', revenueMonth: '2026-02', billingStartMonth: '', billingEndMonth: '', billingAmount: 1800000, billingTotal: 1800000, contactId: '', contactIds: [] },
+    { id: 'billing-demo-002', clientName: 'メディリンク株式会社', dealName: '治験対象者募集キャンペーン運用', amount: 3600000, occurrenceDate: '2026-01-05', quoteDate: '2026-01-12', status: 'contract', engagementStatus: 'contacting', genre: '製薬：治験', service: 'リクルーティングサービス', channel: 'CMIC', billingType: 'monthly', billingDate: '2026-01-31', revenueMonth: '2026-01', billingStartMonth: '2026-01', billingEndMonth: '2026-03', billingAmount: 1200000, billingTotal: 3600000, contactId: '', contactIds: [] },
+    { id: 'billing-demo-003', clientName: '株式会社フューチャー製薬', dealName: 'MR向け商談支援コンテンツ制作', amount: 2400000, occurrenceDate: '2026-02-01', quoteDate: '2026-02-05', status: 'proposal', engagementStatus: 'contacting', genre: '製薬：マーケティング', service: 'SmartPDCA', channel: '広告代理店連携', billingType: 'quarterly', billingDate: '2026-03-31', revenueMonth: '2026-03', billingStartMonth: '2026-03', billingEndMonth: '2026-09', billingAmount: 800000, billingTotal: 2400000, contactId: '', contactIds: [] }
+  ];
+
+  sampleDeals.forEach(saveDeal);
+  ensureBillingMasterRowsFromDeals(ss);
+
+  const sampleMasters = [
+    { id: 'billing-demo-001', pjNumber: 'PJ-LOG-1001', transactionType: '新規', creditCheck: '済', boxUrl: 'https://example.com/box/billing-demo-001', saifuStatus: '済', deliveryStatus: '納品済', invoiceStatus: '請求済', salesFlow: 'パートナー', allianceDataUsage: '無', paymentPartner: '東都パートナーズ', paymentPattern: '3月・9月支払い' },
+    { id: 'billing-demo-002', pjNumber: 'PJ-CT-2026-002', transactionType: '既存', creditCheck: '－', boxUrl: 'https://example.com/box/billing-demo-002', saifuStatus: '未', deliveryStatus: '対応中', invoiceStatus: '未', salesFlow: '', allianceDataUsage: '有', paymentPartner: '', paymentPattern: '' },
+    { id: 'billing-demo-003', pjNumber: '', transactionType: '新規', creditCheck: '未', boxUrl: '', saifuStatus: '未', deliveryStatus: '未', invoiceStatus: '未', salesFlow: '', allianceDataUsage: '無', paymentPartner: '', paymentPattern: '' }
+  ];
+  sampleMasters.forEach(saveBillingMaster);
+
+  const sampleTasks = [
+    { id: 'billing-task-demo-001', targetMonth: '2026-02', dealId: 'billing-demo-001', taskType: '売上請求', status: '対応中', saifuStatus: '済', notes: '請求書送付済み。入金確認待ち。', boxUrl: 'https://example.com/box/task-001' },
+    { id: 'billing-task-demo-002', targetMonth: '2026-02', dealId: 'billing-demo-002', taskType: '支払明細', status: '未', saifuStatus: '未', notes: '前月分のデータ連携明細を作成予定。', boxUrl: 'https://example.com/box/task-002' },
+    { id: 'billing-task-demo-003', targetMonth: '2026-03', dealId: 'billing-demo-001', taskType: '手数料支払', status: '未', saifuStatus: '未', notes: '半期支払い予定。契約条件を再確認。', boxUrl: '' }
+  ];
+  sampleTasks.forEach(saveMonthlyTask);
+
+  return {
+    message: '請求管理用のサンプルデータを投入しました。',
+    deals: sampleDeals.length,
+    billingMasters: sampleMasters.length,
+    monthlyTasks: sampleTasks.length
+  };
+}
+
 function generateDummyContacts(count) {
   const companies = ['株式会社アルファ', 'ベータ商事', 'ガンマ製薬', 'デルタ物流', 'オメガ・マーケティング'];
   const firstNames = ['太郎', '次郎', '花子', '健太', '美咲'];

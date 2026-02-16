@@ -196,22 +196,82 @@ function setupDemoData() {
 
 function setupBillingSampleData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const dealHeaders = ['id', 'clientName', 'dealName', 'amount', 'occurrenceDate', 'quoteDate', 'status', 'engagementStatus', 'genre', 'service', 'channel', 'billingType', 'billingDate', 'revenueMonth', 'billingStartMonth', 'billingEndMonth', 'billingAmount', 'billingTotal', 'contactId', 'contactIds', 'updatedAt'];
+  const headers = {
+    settings: ['id', 'type', 'category', 'name', 'updatedAt'],
+    deals: ['id', 'clientName', 'dealName', 'amount', 'occurrenceDate', 'quoteDate', 'status', 'engagementStatus', 'genre', 'service', 'channel', 'billingType', 'billingDate', 'revenueMonth', 'billingStartMonth', 'billingEndMonth', 'billingAmount', 'billingTotal', 'contactId', 'contactIds', 'updatedAt'],
+    actions: ['id', 'targetDate', 'channel', 'actionContent', 'isDone', 'genre', 'dealId', 'actionType', 'updatedAt'],
+    targets: ['id', 'year', 'month', 'type', 'category', 'metric', 'value', 'updatedAt'],
+    dealLogs: ['id', 'dealId', 'logDate', 'logType', 'content', 'updatedAt'],
+    contacts: ['id', 'company', 'name', 'department', 'email', 'mobilePhone', 'updatedAt'],
+    contents: ['id', 'title', 'category', 'summary', 'body', 'campaignPeriod', 'cta', 'updatedAt']
+  };
 
-  ensureSheet(ss, SHEET_DEALS, dealHeaders);
+  ensureSheet(ss, SHEET_SETTINGS, headers.settings);
+  ensureSheet(ss, SHEET_DEALS, headers.deals);
+  ensureSheet(ss, SHEET_ACTIONS, headers.actions);
+  ensureSheet(ss, SHEET_TARGETS, headers.targets);
+  ensureSheet(ss, SHEET_DEAL_LOGS, headers.dealLogs);
+  ensureSheet(ss, SHEET_CONTACTS, headers.contacts);
+  ensureSheet(ss, SHEET_CONTENTS, headers.contents);
   ensureSheet(ss, SHEET_BILLING_MASTER, BILLING_MASTER_HEADERS);
   ensureSheet(ss, SHEET_MONTHLY_TASKS, MONTHLY_TASK_HEADERS);
+
   ensureDealsSchema(ss.getSheetByName(SHEET_DEALS));
+  ensureActionsSchema(ss.getSheetByName(SHEET_ACTIONS));
+  ensureContactsSchema(ss.getSheetByName(SHEET_CONTACTS));
+  ensureContentsSchema(ss.getSheetByName(SHEET_CONTENTS));
   ensureBillingMasterSchema(ss.getSheetByName(SHEET_BILLING_MASTER));
   ensureMonthlyTasksSchema(ss.getSheetByName(SHEET_MONTHLY_TASKS));
 
-  const sampleDeals = [
-    { id: 'billing-demo-001', clientName: '株式会社テスト商事', dealName: '物流分析ダッシュボード導入', amount: 1800000, occurrenceDate: '2026-01-10', quoteDate: '2026-01-15', status: 'contract', engagementStatus: 'contacting', genre: '運輸', service: 'well-harmoレポート', channel: '既存顧客', billingType: 'single', billingDate: '2026-02-20', revenueMonth: '2026-02', billingStartMonth: '', billingEndMonth: '', billingAmount: 1800000, billingTotal: 1800000, contactId: '', contactIds: [] },
-    { id: 'billing-demo-002', clientName: 'メディリンク株式会社', dealName: '治験対象者募集キャンペーン運用', amount: 3600000, occurrenceDate: '2026-01-05', quoteDate: '2026-01-12', status: 'contract', engagementStatus: 'contacting', genre: '製薬：治験', service: 'リクルーティングサービス', channel: 'CMIC', billingType: 'monthly', billingDate: '2026-01-31', revenueMonth: '2026-01', billingStartMonth: '2026-01', billingEndMonth: '2026-03', billingAmount: 1200000, billingTotal: 3600000, contactId: '', contactIds: [] },
-    { id: 'billing-demo-003', clientName: '株式会社フューチャー製薬', dealName: 'MR向け商談支援コンテンツ制作', amount: 2400000, occurrenceDate: '2026-02-01', quoteDate: '2026-02-05', status: 'proposal', engagementStatus: 'contacting', genre: '製薬：マーケティング', service: 'SmartPDCA', channel: '広告代理店連携', billingType: 'quarterly', billingDate: '2026-03-31', revenueMonth: '2026-03', billingStartMonth: '2026-03', billingEndMonth: '2026-09', billingAmount: 800000, billingTotal: 2400000, contactId: '', contactIds: [] }
+  const sampleSettings = [
+    { id: 'setting-demo-001', type: 'Genre', category: '', name: '製薬：治験' },
+    { id: 'setting-demo-002', type: 'Service', category: '運輸', name: 'well-harmoレポート' },
+    { id: 'setting-demo-003', type: 'Channel', category: '製薬：マーケティング', name: '広告代理店連携' }
   ];
+  sampleSettings.forEach(saveSetting);
 
+  const sampleContacts = [
+    { id: 'contact-demo-001', company: '株式会社テスト商事', name: '山田 太郎', department: '営業企画', email: 'yamada@example.com', mobilePhone: '090-1111-2222' },
+    { id: 'contact-demo-002', company: 'メディリンク株式会社', name: '佐藤 花子', department: 'マーケティング', email: 'sato@example.com', mobilePhone: '090-3333-4444' },
+    { id: 'contact-demo-003', company: '株式会社フューチャー製薬', name: '鈴木 健', department: '事業開発', email: 'suzuki@example.com', mobilePhone: '090-5555-6666' }
+  ];
+  sampleContacts.forEach(saveContact);
+
+  const sampleDeals = [
+    { id: 'billing-demo-001', clientName: '株式会社テスト商事', dealName: '物流分析ダッシュボード導入', amount: 1800000, occurrenceDate: '2026-01-10', quoteDate: '2026-01-15', status: 'contract', engagementStatus: 'contacting', genre: '運輸', service: 'well-harmoレポート', channel: '既存顧客', billingType: 'single', billingDate: '2026-02-20', revenueMonth: '2026-02', billingStartMonth: '', billingEndMonth: '', billingAmount: 1800000, billingTotal: 1800000, contactId: 'contact-demo-001', contactIds: 'contact-demo-001' },
+    { id: 'billing-demo-002', clientName: 'メディリンク株式会社', dealName: '治験対象者募集キャンペーン運用', amount: 3600000, occurrenceDate: '2026-01-05', quoteDate: '2026-01-12', status: 'contract', engagementStatus: 'contacting', genre: '製薬：治験', service: 'リクルーティングサービス', channel: 'CMIC', billingType: 'monthly', billingDate: '2026-01-31', revenueMonth: '2026-01', billingStartMonth: '2026-01', billingEndMonth: '2026-03', billingAmount: 1200000, billingTotal: 3600000, contactId: 'contact-demo-002', contactIds: 'contact-demo-002' },
+    { id: 'billing-demo-003', clientName: '株式会社フューチャー製薬', dealName: 'MR向け商談支援コンテンツ制作', amount: 2400000, occurrenceDate: '2026-02-01', quoteDate: '2026-02-05', status: 'proposal', engagementStatus: 'contacting', genre: '製薬：マーケティング', service: 'SmartPDCA', channel: '広告代理店連携', billingType: 'quarterly', billingDate: '2026-03-31', revenueMonth: '2026-03', billingStartMonth: '2026-03', billingEndMonth: '2026-09', billingAmount: 800000, billingTotal: 2400000, contactId: 'contact-demo-003', contactIds: 'contact-demo-003' }
+  ];
   sampleDeals.forEach(saveDeal);
+
+  const sampleActions = [
+    { id: 'action-demo-001', targetDate: '2026-02-03', channel: '既存顧客', actionContent: '請求内容の最終確認', isDone: false, genre: '運輸', dealId: 'billing-demo-001', actionType: 'deal' },
+    { id: 'action-demo-002', targetDate: '2026-02-05', channel: 'CMIC', actionContent: '月次請求の送付', isDone: true, genre: '製薬：治験', dealId: 'billing-demo-002', actionType: 'deal' },
+    { id: 'action-demo-003', targetDate: '2026-02-08', channel: '広告代理店連携', actionContent: '四半期請求の金額調整', isDone: false, genre: '製薬：マーケティング', dealId: 'billing-demo-003', actionType: 'deal' }
+  ];
+  sampleActions.forEach(saveAction);
+
+  const sampleTargets = [
+    { id: 'target-demo-001', year: 2026, month: 2, type: 'Main', category: 'Total', metric: 'Sales', value: 12000000 },
+    { id: 'target-demo-002', year: 2026, month: 2, type: 'Genre', category: '運輸', metric: 'Sales', value: 4500000 },
+    { id: 'target-demo-003', year: 2026, month: 2, type: 'Genre', category: '製薬：治験', metric: 'Sales', value: 5500000 }
+  ];
+  sampleTargets.forEach(saveTarget);
+
+  const sampleLogs = [
+    { id: 'log-demo-001', dealId: 'billing-demo-001', logDate: '2026-02-01', logType: 'Meeting', content: '納品物確認ミーティングを実施。' },
+    { id: 'log-demo-002', dealId: 'billing-demo-002', logDate: '2026-02-02', logType: 'Result', content: '請求先部署の確認が完了。' },
+    { id: 'log-demo-003', dealId: 'billing-demo-003', logDate: '2026-02-03', logType: 'NextAction', content: '次回打ち合わせで請求条件を確定予定。' }
+  ];
+  sampleLogs.forEach(saveDealLog);
+
+  const sampleContents = [
+    { id: 'content-demo-001', title: '請求運用フローのご案内', category: '運用資料', summary: '請求処理と入金確認の流れ', body: '毎月末に請求書を発行し、翌月10日までに入金確認を行う運用です。', campaignPeriod: '通年', cta: '確認依頼' },
+    { id: 'content-demo-002', title: '製薬向け請求テンプレート', category: 'テンプレート', summary: '製薬案件の請求書フォーマット', body: '製薬案件向けに必要な項目を含んだ請求テンプレートです。', campaignPeriod: '通年', cta: 'テンプレート送付' },
+    { id: 'content-demo-003', title: 'パートナー手数料支払ルール', category: '社内ナレッジ', summary: '半期手数料支払いの条件', body: '3月・9月に手数料支払対象案件を集計し支払処理を実施します。', campaignPeriod: '通年', cta: 'ルール確認' }
+  ];
+  sampleContents.forEach(saveContent);
+
   ensureBillingMasterRowsFromDeals(ss);
 
   const sampleMasters = [
@@ -229,8 +289,14 @@ function setupBillingSampleData() {
   sampleTasks.forEach(saveMonthlyTask);
 
   return {
-    message: '請求管理用のサンプルデータを投入しました。',
+    message: '全シートへサンプルデータ（各3件）を投入しました。',
+    settings: sampleSettings.length,
     deals: sampleDeals.length,
+    actions: sampleActions.length,
+    targets: sampleTargets.length,
+    dealLogs: sampleLogs.length,
+    contacts: sampleContacts.length,
+    contents: sampleContents.length,
     billingMasters: sampleMasters.length,
     monthlyTasks: sampleTasks.length
   };

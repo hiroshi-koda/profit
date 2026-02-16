@@ -845,16 +845,12 @@
                                         <label class="text-xs font-bold text-slate-500">対象期間</label>
                                         <select v-model="selectedTaskMonth" class="rounded-md border-slate-200 text-xs">
                                             <option v-for="month in taskMonthOptions" :key="month" :value="month">
-                                                {{ month === 'all' ? '全期間 (未完了のみ)' : month }}
+                                                {{ month === 'all' ? '全期間' : month }}
                                             </option>
                                         </select>
-                                        <span class="text-[10px] text-slate-400">未完了タスクは自動で表示されます。</span>
+                                        <span class="text-[10px] text-slate-400">チェックは進捗確認用です（タスクは一覧から消えません）。</span>
                                     </div>
                                     <div class="flex items-center gap-2">
-                                        <button @click="generateCurrentMonthTasks"
-                                            class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-emerald-100 shadow">
-                                            今月のタスクを作成
-                                        </button>
                                         <button @click="generateMonthlyTasksForMonth"
                                             class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-indigo-100 shadow">
                                             選択月で作成/更新
@@ -927,7 +923,7 @@
                                 </table>
                                 <div v-if="filteredMonthlyTasks.length === 0"
                                     class="p-8 text-center text-slate-400 text-xs">
-                                    対象月のタスクはまだ作成されていません。
+                                    対象期間のタスクはまだ作成されていません。
                                 </div>
                             </div>
                         </div>
@@ -2872,10 +2868,16 @@
                         updatedAt: item.updatedAt || ''
                     };
                 };
+                const isBillingEligibleDeal = (deal) => {
+                    if (!deal) return false;
+                    return deal.engagementStatus === '決裁者合意・契約締結' || deal.status === 'contract';
+                };
                 const buildBillingMasterRows = (dealRows, masterRows) => {
-                    const masters = (masterRows || []).map(normalizeBillingMaster);
+                    const eligibleDeals = (dealRows || []).filter(isBillingEligibleDeal);
+                    const masters = (masterRows || []).map(normalizeBillingMaster)
+                        .filter(master => eligibleDeals.some(deal => deal.id === master.id));
                     const masterMap = new Map(masters.map(m => [m.id, m]));
-                    const rows = (dealRows || []).map(deal => {
+                    const rows = eligibleDeals.map(deal => {
                         const existing = masterMap.get(deal.id);
                         if (existing) return existing;
                         const startMonth = normalizeYearMonth(deal.billingStartMonth) || normalizeYearMonth(deal.revenueMonth) || normalizeYearMonth(deal.occurrenceDate);
@@ -2895,10 +2897,6 @@
                             invoiceStatus: '未',
                             allianceDataUsage: '無'
                         });
-                    });
-                    const dealIds = new Set((dealRows || []).map(d => d.id));
-                    masters.forEach(master => {
-                        if (!dealIds.has(master.id)) rows.push(master);
                     });
                     return rows;
                 };
@@ -3208,34 +3206,8 @@
                         alert("タスク生成に失敗しました: " + err);
                     }).generateMonthlyTasks(selectedTaskMonth.value);
                 };
-                const getCurrentYearMonth = () => {
-                    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-                };
-                const generateCurrentMonthTasks = () => {
-                    const target = getCurrentYearMonth();
-                    selectedTaskMonth.value = target;
-                    if (typeof google === 'undefined' || !google.script?.run) {
-                        showToast('GAS未接続のためタスク生成はスキップしました');
-                        return;
-                    }
-                    google.script.run.withSuccessHandler(res => {
-                        refreshMonthlyTasksForMonth(target, res);
-                        showToast('今月のタスクを更新しました');
-                    }).withFailureHandler(err => {
-                        alert("タスク生成に失敗しました: " + err);
-                    }).generateMonthlyTasks(target);
-                };
                 const updateMonthlyTaskStatus = (task, field, event) => {
                     task[field] = event.target.checked ? '済' : '未';
-                    if (typeof google === 'undefined' || !google.script?.run) {
-                        showToast('ローカル更新しました');
-                        return;
-                    }
-                    google.script.run.withSuccessHandler(res => {
-                        Object.assign(task, normalizeMonthlyTask(res));
-                    }).withFailureHandler(err => {
-                        alert("更新に失敗しました: " + err);
-                    }).saveMonthlyTask({ ...task });
                 };
                 const getTaskTypeClass = (task) => task.taskType?.includes('売上')
                     ? 'bg-blue-100 text-blue-700 border border-blue-200'
@@ -3453,6 +3425,10 @@
                 // --- COMPUTED ---
                 const taskMonthOptions = computed(() => {
                     const months = new Set((fiscalMonths.value || []).map(m => m.monthStr));
+                    (monthlyTasks.value || []).forEach(task => {
+                        const ym = normalizeYearMonth(task.targetMonth);
+                        if (ym) months.add(ym);
+                    });
                     const list = Array.from(months).sort();
                     return ['all', ...list];
                 });
@@ -3466,13 +3442,16 @@
                     });
                 });
                 const filteredMonthlyTasks = computed(() => {
+                    const tasks = monthlyTasks.value || [];
                     if (selectedTaskMonth.value === 'all') {
-                        return (monthlyTasks.value || [])
-                            .filter(task => task.status !== '済')
-                            .sort((a, b) => (normalizeYearMonth(a.targetMonth) || '').localeCompare(normalizeYearMonth(b.targetMonth) || ''));
+                        return tasks.slice().sort((a, b) => {
+                            const monthDiff = (normalizeYearMonth(a.targetMonth) || '').localeCompare(normalizeYearMonth(b.targetMonth) || '');
+                            if (monthDiff !== 0) return monthDiff;
+                            return (a.taskType || '').localeCompare(b.taskType || '');
+                        });
                     }
                     const target = normalizeYearMonth(selectedTaskMonth.value);
-                    return (monthlyTasks.value || [])
+                    return tasks
                         .filter(task => normalizeYearMonth(task.targetMonth) === target)
                         .sort((a, b) => (a.taskType || '').localeCompare(b.taskType || ''));
                 });
@@ -4267,8 +4246,7 @@
                     billingSearchQuery,
                     filteredBillingMasters,
                     getDeliveryStatusClass,
-                    getInvoiceStatusClass,
-                    generateCurrentMonthTasks
+                    getInvoiceStatusClass
                 };
             }
         });

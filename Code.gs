@@ -482,12 +482,14 @@ function generateMonthlyTasks(targetMonth) {
     return m === 3 || m === 9;
   };
 
-  const upsertTask = (dealId, taskType, notes, boxUrl) => {
-    const key = `${targetMonth}__${dealId}__${taskType}`;
+  const upsertTask = (month, dealId, taskType, notes, boxUrl) => {
+    const normalizedMonth = normalizeYearMonth(month);
+    if (!normalizedMonth) return;
+    const key = `${normalizedMonth}__${dealId}__${taskType}`;
     const existing = taskMap.get(key);
     const payload = existing ? { ...existing } : {
       id: Utilities.getUuid(),
-      targetMonth,
+      targetMonth: normalizedMonth,
       dealId,
       taskType,
       status: '未',
@@ -498,6 +500,7 @@ function generateMonthlyTasks(targetMonth) {
     if (notes !== undefined) payload.notes = notes || '';
     if (boxUrl !== undefined) payload.boxUrl = boxUrl || '';
     saveRow(SHEET_MONTHLY_TASKS, payload, MONTHLY_TASK_HEADERS, ['targetMonth', 'dealId', 'taskType']);
+    taskMap.set(key, payload);
   };
 
   const prevMonth = getPreviousMonth(targetMonth);
@@ -509,25 +512,38 @@ function generateMonthlyTasks(targetMonth) {
     if (!start) return;
 
     if (isMonthInRange(targetMonth, start, end)) {
-      upsertTask(dealId, '売上請求', master.billingType || '', master.boxUrl || '');
+      upsertTask(targetMonth, dealId, '売上請求', master.billingType || '', master.boxUrl || '');
+    }
+
+    if (!master.pjNumber) {
+      upsertTask(start, dealId, 'プロジェクトコード発行', '', master.boxUrl || '');
+    }
+
+    if (master.transactionType === '新規' && master.creditCheck !== '済') {
+      upsertTask(start, dealId, '信用調査', '', master.boxUrl || '');
+    }
+
+    const deliveryMonth = end || start;
+    if (deliveryMonth && master.deliveryStatus !== '納品済' && normalizeYearMonth(targetMonth) === deliveryMonth) {
+      upsertTask(deliveryMonth, dealId, '納品', '', master.boxUrl || '');
     }
 
     const genre = master.genre || '';
     const allianceDataUsage = master.allianceDataUsage || '無';
     if (genre.includes('製薬') && allianceDataUsage === '有') {
       if (isMonthInRange(prevMonth, start, end)) {
-        upsertTask(dealId, '支払明細', '', master.boxUrl || '');
+        upsertTask(targetMonth, dealId, '支払明細', '', master.boxUrl || '');
       }
     }
 
     if (genre === '運輸' && master.salesFlow === 'パートナー') {
       if (isSemiAnnualMonth(targetMonth) && isMonthInRange(targetMonth, start, end)) {
-        upsertTask(dealId, '手数料支払', master.paymentPattern || '', master.boxUrl || '');
+        upsertTask(targetMonth, dealId, '手数料支払', master.paymentPattern || '', master.boxUrl || '');
       }
     }
   });
 
-  return getSheetData(ss, SHEET_MONTHLY_TASKS).filter(task => task.targetMonth === targetMonth);
+  return getSheetData(ss, SHEET_MONTHLY_TASKS);
 }
 
 // --- Helpers ---
@@ -938,6 +954,7 @@ function ensureBillingMasterRowsFromDeals(ss) {
   const deals = getSheetData(ss, SHEET_DEALS);
 
   deals.forEach(deal => {
+    if (!isBillingEligibleDeal(deal)) return;
     if (!deal?.id || masterIds.has(deal.id)) return;
     const startMonth = normalizeYearMonth(deal.billingStartMonth) || normalizeYearMonth(deal.revenueMonth) || normalizeYearMonth(deal.occurrenceDate);
     const endMonth = normalizeYearMonth(deal.billingEndMonth) || startMonth;
@@ -964,6 +981,12 @@ function ensureBillingMasterRowsFromDeals(ss) {
     };
     saveRow(SHEET_BILLING_MASTER, payload, BILLING_MASTER_HEADERS, []);
   });
+}
+
+function isBillingEligibleDeal(deal) {
+  if (!deal) return false;
+  const engagementStatus = String(deal.engagementStatus || '').trim();
+  return engagementStatus === '決裁者合意・契約締結' || deal.status === 'contract';
 }
 
 // --- AI (Gemini) Functions ---
